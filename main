@@ -1,32 +1,102 @@
-local RunService = game:GetService("RunService")
 local Player = game:GetService("Players").LocalPlayer
+local RunService = game:GetService("RunService")
+
+--// UI lib
+local TonyHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Stebulous/solaris-ui-lib/main/source.lua"))()
+local Window = TonyHub:New({Name = "Tony's Hub", FolderToSave = "tonys hub stuff"})
+
+
+--// General tab
+local GeneralTab = Window:Tab("General") 
+local GeneralSection = GeneralTab:Section("Features")
+
+GeneralSection:Textbox("Field of View", true, function(t)
+	Player:SetAttribute("FieldOfView", tonumber(t))
+end)
+
+GeneralSection:Textbox("FPS Cap", true, function(t)
+	setfpscap(tonumber(t))
+end)
+
+--// Killaura tab
+local Killaura = false
+
+local KillauraTab = Window:Tab("Killaura") 
+local KillauraSection = KillauraTab:Section("Features")
+
+local KillauraToggle = KillauraSection:Toggle("Killaura", false, "", function(t)
+	Killaura = t
+end)
 
 local KnifeRemote = game:GetService("ReplicatedStorage").Framework.Remotes.KnifeHitbox
 local ZombieFolder = workspace.Ignore.Zombies
 local Roots = {}
 
 local function ZombieAdded(Zombie)
-    local Humanoid = Zombie:WaitForChild("Humanoid")
-    Roots[Humanoid.RootPart] = Humanoid
+	local Humanoid = Zombie:WaitForChild("Humanoid")
+	Roots[Humanoid.RootPart] = Humanoid
 end
 
 for _, Zombie in pairs(ZombieFolder:GetChildren()) do
-    ZombieAdded(Zombie)
+	ZombieAdded(Zombie)
 end
 
 ZombieFolder.ChildAdded:Connect(function(Zombie)
-    ZombieAdded(Zombie)
+	ZombieAdded(Zombie)
 end)
 
 RunService.Heartbeat:Connect(function(Deltatime)
-    local Root = Player.Character.HumanoidRootPart
-    if not Root then return end
-    
-    for Z_Root, Z_Humanoid in pairs(Roots) do
-        if Z_Humanoid.Health <= 0 then
-            Roots[Z_Root] = nil
-        elseif (Root.Position - Z_Root.Position).Magnitude <= 20 then
-            KnifeRemote:FireServer(Z_Humanoid)
-        end
-    end
+	local Root = Player.Character.HumanoidRootPart
+	if not Root then return end
+
+	for Z_Root, Z_Humanoid in pairs(Roots) do
+		if Z_Humanoid.Health <= 0 then
+			Roots[Z_Root] = nil
+		elseif (Root.Position - Z_Root.Position).Magnitude <= 20 then
+			if Killaura then
+				KnifeRemote:FireServer(Z_Humanoid)
+			end
+		end
+	end
+end)
+
+--// Gun mods tab
+local Character = Player.Character
+local Stats = Character.CharStats
+
+local ReloadSpeed = Instance.new("NumberValue")
+ReloadSpeed.Parent = Stats.ReloadBuffs
+
+local ShotSpeed = Instance.new("NumberValue")
+ShotSpeed.Parent = Stats.ShootBuffs
+
+local GunTab = Window:Tab("Gun Mods") 
+local GunSection = GunTab:Section("Features")
+
+GunSection:Button("Remove Recoil", function()
+	for i, v in pairs(getgc(true)) do
+		if type(v) == "table" and rawget(v, "RPM") and rawget(v, "CAMERA_RECOIL") and rawget(v, "SPREAD") then
+
+			local table = rawget(v,"CAMERA_RECOIL")
+			if type(table) ~= "table" then continue end
+
+			table.IDLE = function()
+				return Vector3.zero
+			end
+			table.AIM = function()
+				return Vector3.zero
+			end
+			table.CROUCH = function()
+				return Vector3.zero
+			end
+		end
+	end
+end)
+
+GunSection:Textbox("Reload Speed", true, function(t)
+	ReloadSpeed.Value = tonumber(t)
+end)
+
+GunSection:Textbox("Fire Rate", true, function(t)
+	ShotSpeed.Value = tonumber(t)
 end)
