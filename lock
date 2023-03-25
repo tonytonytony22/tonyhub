@@ -1,0 +1,110 @@
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local Me = Players.LocalPlayer
+local Mouse = Me:GetMouse()
+local Camera = workspace.CurrentCamera
+Camera.FieldOfView = 85
+
+local Text = Drawing.new("Text")
+Text.Visible = true
+Text.Position = Vector2.new(1920/2, 20)
+Text.Text = "Lock:"
+Text.Size = 30
+Text.Center = true
+Text.Outline = true
+Text.OutlineColor = Color3.fromRGB(180, 34, 180)
+
+local Tracer = Drawing.new("Line")
+Tracer.Thickness = 4
+Tracer.Visible = true
+Tracer.Color = Color3.fromRGB(180, 34, 180)
+
+local function ClosestPlayerToMouse(Part)
+	for _, Player in pairs(Players:GetPlayers()) do
+		if Player == Me then continue end
+		local Character = Player.Character
+		if Character and Character:FindFirstChild("Humanoid") and Character:FindFirstChild("Humanoid") ~= 0 and Character:FindFirstChild("HumanoidRootPart") and Character:FindFirstChild(Part) then
+			local Position, Visible = Camera:WorldToViewportPoint(Character[Part].Position)
+			local Distance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(Position.X, Position.Y)).Magnitude
+
+			if Distance < 100 and Visible then
+				return Character
+			end
+		end
+	end
+end
+
+local Target
+local Speed = false
+
+UserInputService.InputBegan:Connect(function(Key, Typing)
+	if Typing then return end
+	if Key.KeyCode == Enum.KeyCode.X then
+	    
+		if Target == ClosestPlayerToMouse("UpperTorso") then
+			Target = nil
+			Text.Text = "Lock: " .. tostring(Target)
+		else
+			Target = ClosestPlayerToMouse("UpperTorso")
+			Text.Text = "Lock: " .. tostring(Target)
+		end
+
+	elseif Key.KeyCode == Enum.KeyCode.V then
+		Speed  = not Speed
+	end
+end)
+
+local PreviousPosition = Vector3.zero
+local Velocity
+
+RunService.Heartbeat:Connect(function(Deltatime)
+    local Character = Me.Character
+    local Humanoid = Character.Humanoid.MoveDirection
+    
+    	for _, Connection in pairs(getconnections(Character.HumanoidRootPart:GetPropertyChangedSignal("CFrame"))) do
+		Connection:Disable()
+	end
+    
+	if Speed then
+		if Humanoid.Magnitude > 0 then
+			Character:TranslateBy(Humanoid * 10 * Deltatime * 10)
+		else
+			Character:TranslateBy(Humanoid * Deltatime * 10)
+		end
+	end
+
+	if Target == nil then
+		Tracer.Visible = false
+	else
+		local CurrentPosition = Target.HumanoidRootPart.Position
+		Velocity = (CurrentPosition - PreviousPosition) / Deltatime
+		
+		local Position, Visible = Camera:WorldToViewportPoint(Target.HumanoidRootPart.Position)
+		if Visible then 
+			Tracer.From = Vector2.new(Mouse.X, Mouse.Y+40)
+			Tracer.To = Vector2.new(Position.X, Position.Y)
+			Tracer.Visible = true
+
+			PreviousPosition = CurrentPosition
+		else
+			Tracer.Visible = false
+		end
+	end
+end)
+
+local Old; Old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+	local Args, Method = {...}, getnamecallmethod()
+
+	if Method == "FireServer" and Args[1] == "UpdateMousePos" and Target ~= nil then
+		if Target.Humanoid.FloorMaterial == Enum.Material.Air then
+			Args[2] = Target.HumanoidRootPart.Position + Velocity  * 0.121
+		else
+			Args[2] = Target.Head.Position + Velocity * 0.121
+		end
+		return Old(self, unpack(Args))  
+	end
+
+	return Old(self, ...)
+end))
